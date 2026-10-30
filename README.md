@@ -28,6 +28,7 @@
 - AMD VA-API 硬件解码
 - PipeWire 音频
 - yt-dlp 在线视频播放，并排除 B 站弹幕伪字幕轨
+- 可选 External Player Fedora 浏览器油猴集成和原生 `ush://` 协议处理器
 
 ## 安装
 
@@ -59,6 +60,27 @@ sudo dnf install ffmpeg
 
 ```bash
 MPV_CONFIG_DIR=/path/to/mpv ./install.sh
+```
+
+## External Player Fedora
+
+可选安装浏览器外部播放器集成：
+
+```bash
+cd integrations/external-player
+./install-fedora.sh
+```
+
+然后在 Tampermonkey 中导入：
+
+```text
+integrations/external-player/external-player-fedora.user.js
+```
+
+详细说明见：
+
+```text
+integrations/external-player/README.md
 ```
 
 ## 快捷键
@@ -195,6 +217,8 @@ AO: [pipewire] 44100Hz stereo 2ch floatp
 │   ├── uosc_danmaku.conf
 │   ├── thumbfast.conf
 │   └── stats_mediainfo.conf
+├── integrations/
+│   └── external-player/
 ├── patches/
 ├── licenses/
 ├── CHANGELOG.md
@@ -242,6 +266,13 @@ AO: [pipewire] 44100Hz stereo 2ch floatp
 - 不迁移 Windows 安装器、命名管道和 D3D11 专用配置；
 - 只收录当前使用的 shader，避免仓库膨胀；
 - 本地兼容补丁必须保存在 `patches/`，方便上游修复后移除。
+
+## External Player Fedora 限制
+
+- 上游 `url-scheme-handler` 是 Windows 程序，本项目不使用它。
+- Fedora 使用 `integrations/external-player/fedora-ush-handler.py` 注册用户级 `ush://` 协议。
+- 浏览器第一次调用时会显示外部协议确认窗口。
+- 浏览器中的原版 External Player 脚本应禁用，避免同时显示两套按钮。
 
 ## 来源与许可证
 

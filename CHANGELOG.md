@@ -1,5 +1,42 @@
 # Changelog
 
+## 2026-10-30 12:07 - External Player Fedora integration
+
+### Added
+
+- 新增 `External Player Fedora` 油猴脚本 fork，基于上游 1.3.1。
+- 新增 Fedora/Linux 原生 `ush://` 协议处理器。
+- 新增用户级安装与卸载脚本。
+- 新增 `x-scheme-handler/ush` desktop 注册。
+- 新增 MPV 应用名到 `/usr/bin/mpv` 的本地安全映射配置。
+- 新增 External Player 集成文档和许可证文件。
+
+### Changed
+
+- MPV 播放器标记从 Windows 改为 Linux。
+- MPV 参数从 shell 风格字符串改为 gzip + Base64 编码的 JSON 数组。
+- 油猴脚本旧配置升级时同步迁移播放器平台和播放事件。
+- Origin、Referer 和 Cookie 合并传递给单个 `--http-header-fields` 参数。
+- 保留 Bilibili `cid` 参数，继续兼容 `uosc_danmaku` 自动弹幕识别。
+
+### Security
+
+- Fedora handler 不经过 shell 启动程序。
+- 网页只能选择本地配置中已存在的应用名，不能指定任意可执行文件路径。
+- 配置中的可执行文件必须是绝对路径且具备执行权限。
+- 限制 URI、gzip payload 和 argv 数量。
+- 桌面通知不包含 URL、Referer、Cookie 或媒体标题。
+- 修复部分桌面启动器把 Base64 `+` 错误转换成空格时的解码问题。
+
+### Validated
+
+- JSON payload 参数边界测试通过。
+- 上游 legacy payload 解析测试通过。
+- 含引号、换行、中文和伪攻击字符串的标题仍保持单一 argv 项。
+- 未知应用名会被拒绝。
+- Desktop `ush://` 调用链测试通过。
+- 默认关联正确指向 `mpv-fedora-ush-handler.desktop`。
+
 ## 2026-10-30 11:32 - Initial Fedora 44 release
 
 ### Added
