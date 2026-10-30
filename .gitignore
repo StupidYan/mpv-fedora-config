@@ -1,0 +1,16 @@
+# mpv runtime state
+danmaku-history.json
+danmaku-search-history.json
+watch_later/
+cache/
+state/
+
+# Generated media and logs
+screenshots/
+*.log
+*.out
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store

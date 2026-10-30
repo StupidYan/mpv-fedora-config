@@ -1,0 +1,65 @@
+--- a/scripts/uosc_danmaku/modules/inflate.lua
++++ b/scripts/uosc_danmaku/modules/inflate.lua
+@@ -12,7 +12,61 @@
+ ---@diagnostic disable-next-line: undefined-global
+ local bitOp = bit32 or bit
+ if not bitOp then
+-    error('This library requires bit operations to work property.')
++    -- Fedora mpv links Lua 5.1 without bit/bit32. Lua numbers are exact
++    -- integers through 2^53, so the required unsigned 32-bit operations
++    -- can be implemented arithmetically for this library's inputs.
++    local function tou32(value)
++        value = math.floor(tonumber(value) or 0)
++        value = math.fmod(value, 4294967296)
++        if value < 0 then value = value + 4294967296 end
++        return value
++    end
++
++    local function bitArg(value, index)
++        return math.floor(tou32(value) / 2^index) % 2
++    end
++
++    bitOp = {
++        band = function(...)
++            local result = 4294967295
++            for _, value in ipairs({...}) do
++                for i = 0, 31 do
++                    if bitArg(value, i) == 0 then
++                        result = result - 2^i * bitArg(result, i)
++                    end
++                end
++            end
++            return result
++        end,
++        bxor = function(...)
++            local result = 0
++            local args = {...}
++            for i = 0, 31 do
++                local parity = 0
++                for _, value in ipairs(args) do
++                    parity = parity + bitArg(value, i)
++                end
++                if parity % 2 == 1 then
++                    result = result + 2^i
++                end
++            end
++            return result
++        end,
++        bnot = function(value)
++            return 4294967295 - tou32(value)
++        end,
++        lshift = function(value, shift)
++            shift = math.floor(tonumber(shift) or 0)
++            if shift < 0 then return 0 end
++            return tou32(tou32(value) * 2^shift)
++        end,
++        rshift = function(value, shift)
++            shift = math.floor(tonumber(shift) or 0)
++            if shift < 0 then return 0 end
++            if shift >= 32 then return 0 end
++            return math.floor(tou32(value) / 2^shift)
++        end,
++    }
+ end
+ 
+ local rshift, lshift, band, bxor, bnot = bitOp.rshift, bitOp.lshift, bitOp.band, bitOp.bxor, bitOp.bnot
