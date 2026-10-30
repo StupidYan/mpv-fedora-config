@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name                    External Player Fedora
-// @name:zh-CN              外部播放器 Fedora
-// @namespace               https://github.com/StupidYan/mpv-fedora-config
+// @name                    External Player
+// @name:zh-CN              外部播放器
+// @namespace               https://github.com/LuckyPuppy514/external-player
 // @copyright               2024, Grant LuckyPuppy514 (https://github.com/LuckyPuppy514)
 // @version                 1.3.1-fedora.1
 // @license                 MIT

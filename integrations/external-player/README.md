@@ -62,17 +62,17 @@ mpv-fedora-ush-handler.desktop
 
 ## Install the userscript
 
-1. Open your browser's Tampermonkey dashboard.
-2. Disable or remove the original `External Player 1.3.1` script.
-3. Create a new script and paste the contents of:
+1. Open the raw script URL:
 
    ```text
-   external-player-fedora.user.js
+   https://raw.githubusercontent.com/StupidYan/mpv-fedora-config/main/integrations/external-player/external-player-fedora.user.js
    ```
 
-4. Save and reload the video website.
+2. Let Tampermonkey install or update the script.
+3. If you prefer a manual update, paste the repository file over the existing `External Player` script and save.
+4. Reload the video website.
 
-The Fedora fork is named **External Player Fedora** so it does not silently overwrite the upstream script. Its internal configuration version is also increased, which migrates the existing MPV player entry to the Linux-safe argument encoder.
+The fork keeps the upstream script name and namespace so Tampermonkey treats it as an update to your existing installation. Its internal configuration version is increased, which migrates the existing MPV player entry to the Linux-safe argument encoder.
 
 The first site activation may ask the browser for permission to open an external application. Choose the `mpv Fedora USH Handler`.
 

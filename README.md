@@ -272,7 +272,7 @@ AO: [pipewire] 44100Hz stereo 2ch floatp
 - 上游 `url-scheme-handler` 是 Windows 程序，本项目不使用它。
 - Fedora 使用 `integrations/external-player/fedora-ush-handler.py` 注册用户级 `ush://` 协议。
 - 浏览器第一次调用时会显示外部协议确认窗口。
-- 浏览器中的原版 External Player 脚本应禁用，避免同时显示两套按钮。
+- 油猴脚本保留上游名称和 namespace，导入时会作为现有 External Player 的更新，避免出现两套按钮。
 
 ## 来源与许可证
 
