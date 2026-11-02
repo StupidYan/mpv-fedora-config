@@ -14,7 +14,7 @@ The upstream `LuckyPuppy514/url-scheme-handler` implements this protocol for Win
 
 | File | Purpose |
 |---|---|
-| `external-player-fedora.user.js` | Fedora fork of the Tampermonkey userscript |
+| `external-player-fedora.user.js` | Fedora fork of the Violentmonkey userscript |
 | `fedora-ush-handler.py` | Native Linux `ush://` protocol handler |
 | `install-fedora.sh` | Installs and uninstalls the user-local handler |
 
@@ -68,11 +68,11 @@ mpv-fedora-ush-handler.desktop
    https://raw.githubusercontent.com/StupidYan/mpv-fedora-config/main/integrations/external-player/external-player-fedora.user.js
    ```
 
-2. Let Tampermonkey install or update the script.
+2. Let Violentmonkey install or update the script.
 3. If you prefer a manual update, paste the repository file over the existing `External Player` script and save.
 4. Reload the video website.
 
-The fork keeps the upstream script name and namespace so Tampermonkey treats it as an update to your existing installation. Its internal configuration version is increased, which migrates the existing MPV player entry to the Linux-safe argument encoder.
+The fork keeps the upstream script name and namespace so Violentmonkey treats it as an update to your existing installation. Its internal configuration version is increased, which migrates the existing MPV player entry to the Linux-safe argument encoder.
 
 The first site activation may ask the browser for permission to open an external application. Choose the `mpv Fedora USH Handler`.
 
@@ -119,6 +119,17 @@ The native handler:
 - never lets a web page choose an arbitrary executable path;
 - limits URI, payload, and argument sizes;
 - omits URLs, cookies, headers, and titles from desktop notifications.
+- launches MPV in `--player-operation-mode=pseudo-gui` mode;
+- fills in the standard user Wayland runtime environment when a browser activation omits it;
+- writes launch diagnostics and mpv output to a user-private state log.
+
+The private log is:
+
+```text
+~/.local/state/mpv-fedora/external-handler.log
+```
+
+The file is mode `0600`, belongs only to the current user, and is truncated when it grows beyond 1 MiB. It can contain mpv terminal output, which may include media URLs, headers, cookies, or titles. Do not paste the full file publicly without redacting it.
 
 For compatibility with launchers that corrupt Base64 `+` characters into spaces, the handler repairs that specific form only if the repaired string is valid Base64.
 
@@ -146,6 +157,51 @@ Using hardware decoding (vaapi-copy)
 AO: [pipewire]
 [uosc_danmaku] 已解析 N 条弹幕
 ```
+
+## Troubleshooting
+
+If clicking the webpage button does not open mpv, first open the webpage console:
+
+```text
+F12 → Console
+```
+
+A line such as:
+
+```text
+Opening MPV with N arguments
+Launched external handler for 'ush://MPV?...'
+```
+
+means Violentmonkey and the browser successfully dispatched the URL. Continue with:
+
+```bash
+less ~/.local/state/mpv-fedora/external-handler.log
+```
+
+Look for:
+
+```text
+launch app='MPV' payload=json
+running pid=...
+exited pid=... return_code=...
+```
+
+- `running pid=...` means mpv stayed alive for at least two seconds.
+- `exited ... return_code=...` means mpv exited immediately; inspect the mpv output lines immediately above it.
+- No new `launch` line means Chromium/KDE did not invoke the handler. Check:
+
+  ```bash
+  xdg-mime query default x-scheme-handler/ush
+  ```
+
+  It must return:
+
+  ```text
+  mpv-fedora-ush-handler.desktop
+  ```
+
+After changing the protocol handler, fully restart the browser. A browser process that started before handler installation can retain an older external-protocol activation path.
 
 ## Uninstall
 

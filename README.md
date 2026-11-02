@@ -71,7 +71,7 @@ cd integrations/external-player
 ./install-fedora.sh
 ```
 
-然后在 Tampermonkey 中导入：
+然后在 Violentmonkey / 暴力猴中导入：
 
 ```text
 integrations/external-player/external-player-fedora.user.js

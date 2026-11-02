@@ -18,6 +18,8 @@ import shlex
 import shutil
 import subprocess
 import sys
+import time
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlsplit
@@ -25,6 +27,7 @@ from urllib.parse import unquote, urlsplit
 MAX_URI_LENGTH = 32_768
 MAX_PAYLOAD_LENGTH = 65_536
 MAX_ARGV_LENGTH = 256
+MAX_LOG_SIZE = 1_048_576
 
 
 class HandlerError(Exception):
@@ -128,7 +131,7 @@ def payload_to_argv(payload: str) -> list[str]:
     return argv
 
 
-def parse_ush_url(uri: str) -> tuple[str, list[str]]:
+def parse_ush_url(uri: str) -> tuple[str, list[str], str]:
     if len(uri) > MAX_URI_LENGTH:
         raise HandlerError("URI is too large")
 
@@ -142,12 +145,21 @@ def parse_ush_url(uri: str) -> tuple[str, list[str]]:
         raise HandlerError("URI application name or payload is empty")
 
     payload = decode_payload(encoded_payload)
-    return app_name, payload_to_argv(payload)
+    payload_kind = "json" if payload.lstrip().startswith("[") else "legacy"
+    return app_name, payload_to_argv(payload), payload_kind
 
 
 def resolve_executable(app_name: str) -> Path:
     apps = load_apps()
-    executable = apps.get(app_name)
+    # xdg-open and some desktop portals normalize the URI host to lower case,
+    # turning `ush://MPV?...` into `ush://mpv?...`. Match configured names
+    # case-insensitively while still allowing only locally configured apps.
+    requested_name = app_name.casefold()
+    executable = None
+    for configured_name, configured_path in apps.items():
+        if configured_name.casefold() == requested_name:
+            executable = configured_path
+            break
     if not executable:
         supported = ", ".join(sorted(apps))
         raise HandlerError(f"Application is not configured: {app_name} (configured: {supported})")
@@ -178,37 +190,100 @@ def notify_error(message: str) -> None:
         pass
 
 
+def handler_log_path() -> Path:
+    state_home = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state")).expanduser()
+    return state_home / "mpv-fedora" / "external-handler.log"
+
+
+def write_log(message: str) -> Path:
+    path = handler_log_path()
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    path.touch(mode=0o600, exist_ok=True)
+
+    # Keep debug data bounded. Do not retain a compressed old copy because mpv
+    # output can contain URLs, headers, cookies, or media titles.
+    if path.stat().st_size > MAX_LOG_SIZE:
+        path.unlink(missing_ok=True)
+        path.touch(mode=0o600)
+
+    timestamp = datetime.now().astimezone().isoformat(timespec="milliseconds")
+    with path.open("a", encoding="utf-8", newline="\n") as file:
+        file.write(f"[{timestamp}] {message}\n")
+    return path
+
+
+def build_launch_environment() -> dict[str, str]:
+    environment = os.environ.copy()
+    runtime_dir = f"/run/user/{os.getuid()}"
+
+    # Desktop activations normally inherit these values. Some browser and
+    # portal combinations do not, so provide the standard user-session values.
+    environment.setdefault("XDG_RUNTIME_DIR", runtime_dir)
+    environment.setdefault("WAYLAND_DISPLAY", "wayland-0")
+    environment.setdefault("DBUS_SESSION_BUS_ADDRESS", f"unix:path={runtime_dir}/bus")
+    return environment
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         print("Usage: mpv-fedora-ush-handler 'ush://APP?PAYLOAD'", file=sys.stderr)
         return 2
 
     try:
-        app_name, argv = parse_ush_url(sys.argv[1])
+        app_name, argv, payload_kind = parse_ush_url(sys.argv[1])
         executable = resolve_executable(app_name)
 
         if os.environ.get("MPV_USH_HANDLER_DRY_RUN") == "1":
             print(json.dumps({"app": app_name, "executable": str(executable), "argv": argv}, ensure_ascii=False, indent=2))
             return 0
 
-        # Detach from the browser's activation process. mpv is launched directly
-        # with an argv list; no shell is involved.
-        subprocess.Popen(
-            [str(executable), *argv],
-            cwd=Path.home(),
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
+        launch_argv = list(argv)
+        if app_name.casefold() == "mpv" and not any(arg.startswith("--player-operation-mode=") for arg in launch_argv):
+            launch_argv.insert(0, "--player-operation-mode=pseudo-gui")
+
+        environment = build_launch_environment()
+        log_path = write_log(
+            f"launch app={app_name!r} executable={executable!s} "
+            f"payload={payload_kind} args={len(argv)} "
+            f"wayland={environment.get('WAYLAND_DISPLAY', '')!r} "
+            f"runtime={environment.get('XDG_RUNTIME_DIR', '')!r}"
         )
-        return 0
+
+        # Detach from the browser's activation process. mpv is launched directly
+        # with an argv list; no shell is involved. Keep mpv output in a
+        # user-private state file because silent launch failures are otherwise
+        # invisible when the browser discards desktop activation output.
+        with log_path.open("a", encoding="utf-8", newline="\n") as output_log:
+            timestamp = datetime.now().astimezone().isoformat(timespec="milliseconds")
+            print(f"[{timestamp}] mpv output begin", file=output_log, flush=True)
+            process = subprocess.Popen(
+                [str(executable), *launch_argv],
+                cwd=Path.home(),
+                env=environment,
+                stdin=subprocess.DEVNULL,
+                stdout=output_log,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
+
+        # Most invalid URLs, refused headers, and display initialization errors
+        # happen immediately. Wait briefly so quick failures are captured.
+        time.sleep(2)
+        return_code = process.poll()
+        if return_code is None:
+            write_log(f"running pid={process.pid}")
+        else:
+            write_log(f"exited pid={process.pid} return_code={return_code}")
+        return 0 if return_code is None or return_code == 0 else 1
     except HandlerError as error:
         print(f"External Player Fedora: {error}", file=sys.stderr)
+        write_log(f"handler error: {error}")
         notify_error(str(error))
         return 1
     except OSError as error:
         # Do not include the OS error string if it can contain a path/URL.
         print("External Player Fedora: failed to launch the configured application", file=sys.stderr)
+        write_log(f"launch exception: {error}")
         notify_error("Failed to launch the configured application")
         return 1
 
