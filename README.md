@@ -80,7 +80,8 @@ integrations/external-player/external-player-fedora.user.js
 详细说明见：
 
 ```text
-integrations/external-player/README.md
+integrations/external-player/README.md（英文）
+integrations/external-player/README.zh-CN.md（中文）
 ```
 
 ## 快捷键
