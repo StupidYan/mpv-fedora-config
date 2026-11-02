@@ -12,6 +12,35 @@ CONFIG_DIR="$CONFIG_HOME/mpv"
 CONFIG_FILE="$CONFIG_DIR/external-player-handler.json"
 HANDLER="$BIN_DIR/mpv-fedora-ush-handler"
 DESKTOP_FILE="$APPLICATIONS_DIR/mpv-fedora-ush-handler.desktop"
+DESKTOP_ID="mpv-fedora-ush-handler.desktop"
+USH_CONTENT_TYPE="x-scheme-handler/ush"
+
+# Chromium resolves external schemes through xdg-desktop-portal, which keeps
+# its own "latest choice" memory in the permission store and prefers it over
+# the mimeapps default. A stale entry (for example the mpv player itself) then
+# receives the raw ush:// URL and exits silently. Seeding our handler with
+# count >= threshold makes the portal skip its app chooser and always launch
+# this handler, and repairs an already-poisoned entry.
+seed_portal_permission() {
+    command -v busctl >/dev/null 2>&1 || return 0
+    busctl --user call \
+        org.freedesktop.impl.portal.PermissionStore \
+        /org/freedesktop/impl/portal/PermissionStore \
+        org.freedesktop.impl.portal.PermissionStore \
+        SetPermission sbssas \
+        "desktop-used-apps" true "$USH_CONTENT_TYPE" "" \
+        3 "$DESKTOP_ID" "3" "3" >/dev/null 2>&1 || true
+}
+
+clear_portal_permission() {
+    command -v busctl >/dev/null 2>&1 || return 0
+    busctl --user call \
+        org.freedesktop.impl.portal.PermissionStore \
+        /org/freedesktop/impl/portal/PermissionStore \
+        org.freedesktop.impl.portal.PermissionStore \
+        DeletePermission sss \
+        "desktop-used-apps" "$USH_CONTENT_TYPE" "" >/dev/null 2>&1 || true
+}
 
 uninstall() {
     install -d "$BIN_DIR" "$APPLICATIONS_DIR"
@@ -36,6 +65,7 @@ PY
     if command -v desktop-file-install >/dev/null 2>&1; then
         update-desktop-database "$APPLICATIONS_DIR" 2>/dev/null || true
     fi
+    clear_portal_permission
     python3 - "$CONFIG_HOME/mimeapps.list" <<'PY'
 from pathlib import Path
 import sys
@@ -125,6 +155,8 @@ if command -v gio >/dev/null 2>&1; then
 else
     xdg-mime default mpv-fedora-ush-handler.desktop x-scheme-handler/ush
 fi
+
+seed_portal_permission
 
 echo "Installed handler: $HANDLER"
 echo "Installed desktop entry: $DESKTOP_FILE"

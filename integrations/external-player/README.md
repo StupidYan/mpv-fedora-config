@@ -133,6 +133,36 @@ The file is mode `0600`, belongs only to the current user, and is truncated when
 
 For compatibility with launchers that corrupt Base64 `+` characters into spaces, the handler repairs that specific form only if the repaired string is valid Base64.
 
+## Chromium and the XDG desktop portal
+
+Recent Chromium releases do not run `xdg-open` for external protocols. They call the XDG desktop portal (`org.freedesktop.portal.OpenURI`) instead, and the portal keeps its own "latest choice" memory for each scheme in the permission store (`desktop-used-apps` table).
+
+That memory takes priority over the `mimeapps.list` default. If a portal app chooser ever appeared for `ush://` and the plain `mpv` player was selected, the portal forever forwards the raw `ush://...` URL to `/usr/share/applications/mpv.desktop`. mpv cannot open such a URL and exits silently, so the browser reports a successful launch while nothing appears.
+
+The installer prevents and repairs this by seeding the permission store with this handler as the latest choice for `x-scheme-handler/ush`, with a usage count already at the portal's threshold, which also suppresses the portal's app chooser:
+
+```bash
+busctl --user call \
+    org.freedesktop.impl.portal.PermissionStore \
+    /org/freedesktop/impl/portal/PermissionStore \
+    org.freedesktop.impl.portal.PermissionStore \
+    SetPermission sbssas \
+    "desktop-used-apps" true "x-scheme-handler/ush" "" \
+    3 "mpv-fedora-ush-handler.desktop" "3" "3"
+```
+
+Inspect the current state with:
+
+```bash
+busctl --user call \
+    org.freedesktop.impl.portal.PermissionStore \
+    /org/freedesktop/impl/portal/PermissionStore \
+    org.freedesktop.impl.portal.PermissionStore \
+    Lookup ss "desktop-used-apps" "x-scheme-handler/ush"
+```
+
+An entry that does not name `mpv-fedora-ush-handler.desktop` first means the portal will bypass this handler; rerun the installer or the `SetPermission` command above to repair it.
+
 ## Test
 
 A dry-run without launching mpv:
@@ -200,6 +230,8 @@ exited pid=... return_code=...
   ```text
   mpv-fedora-ush-handler.desktop
   ```
+
+- A correct `xdg-mime` result plus browser console lines such as `Launched external handler for 'ush://...'`, but still no `launch` log line, means the XDG portal forwarded the URL to a different application. Verify the portal's stored choice as shown in [Chromium and the XDG desktop portal](#chromium-and-the-xdg-desktop-portal); on Chromium-based browsers you can also watch the actual target with `dbus-monitor --session | grep -A2 Launched` while clicking the play button.
 
 After changing the protocol handler, fully restart the browser. A browser process that started before handler installation can retain an older external-protocol activation path.
 
