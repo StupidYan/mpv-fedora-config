@@ -1,5 +1,7 @@
 # External Player Fedora integration
 
+Language: English | [简体中文](README.zh-CN.md)
+
 This directory adapts [External Player](https://github.com/LuckyPuppy514/external-player) for Fedora Linux.
 
 Target environment: Fedora 44 with KDE Plasma (Wayland), as declared in the repository root README. The integration was developed and verified on this combination only (Plasma 6.8.2, xdg-desktop-portal 1.22.1, Chromium 156.0.8078.73). GNOME and every other desktop are untested, and no support is claimed for them. For orientation only: the handler is a plain Python 3 executable, the installer uses the XDG user directories (`~/.local/bin`, `~/.local/share/applications`) and `gio`/`xdg-mime` associations, and the desktop entry's `X-KDE-Protocols` key is a KDE-specific hint — none of this is a cross-desktop compatibility statement.
