@@ -8,7 +8,7 @@
 // @description             Play web video via external player
 // @description:zh-CN       使用外部播放器播放网页中的视频
 // @icon                    https://www.lckp.top/gh/LuckyPuppy514/pic-bed/common/mpv.png
-// @author                  LuckyPuppy514
+// @author                  aNzi
 // @homepage                https://github.com/LuckyPuppy514/external-player
 // @include                 *://*
 // @connect                 v.anime1.me
