@@ -2,6 +2,8 @@
 
 This directory adapts [External Player](https://github.com/LuckyPuppy514/external-player) for Fedora Linux.
 
+Target environment: Fedora 44 with KDE Plasma (Wayland), as declared in the repository root README. The integration was developed and verified on this combination only (Plasma 6.8.2, xdg-desktop-portal 1.22.1, Chromium 156.0.8078.73). GNOME and every other desktop are untested, and no support is claimed for them. For orientation only: the handler is a plain Python 3 executable, the installer uses the XDG user directories (`~/.local/bin`, `~/.local/share/applications`) and `gio`/`xdg-mime` associations, and the desktop entry's `X-KDE-Protocols` key is a KDE-specific hint — none of this is a cross-desktop compatibility statement.
+
 The upstream userscript opens URLs such as:
 
 ```text
@@ -136,6 +138,8 @@ For compatibility with launchers that corrupt Base64 `+` characters into spaces,
 ## Chromium and the XDG desktop portal
 
 Recent Chromium releases do not run `xdg-open` for external protocols. They call the XDG desktop portal (`org.freedesktop.portal.OpenURI`) instead, and the portal keeps its own "latest choice" memory for each scheme in the permission store (`desktop-used-apps` table).
+
+Everything in this section was observed on this machine via D-Bus tracing: Chromium 156 called `org.freedesktop.portal.OpenURI`, and the request was served by the `xdg-desktop-portal` service (1.22.1) alone, which consulted the permission store and launched the desktop file itself; `xdg-desktop-portal-kde` (6.8.2) was not involved. Fedora 44 also packages `xdg-desktop-portal-gnome`, but GNOME was not tested and it is unknown whether it is affected in the same way; the commands below document what was verified on KDE Plasma, not cross-desktop support.
 
 That memory takes priority over the `mimeapps.list` default. If a portal app chooser ever appeared for `ush://` and the plain `mpv` player was selected, the portal forever forwards the raw `ush://...` URL to `/usr/share/applications/mpv.desktop`. mpv cannot open such a URL and exits silently, so the browser reports a successful launch while nothing appears.
 
